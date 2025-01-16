@@ -1,4 +1,4 @@
-package com.chakrawellness.chakraapp
+package com.chakrawellness.app
 
 import org.junit.Test
 

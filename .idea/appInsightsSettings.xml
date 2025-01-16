@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.chakrawellness.app" />
+                  <option name="mobileSdkAppId" value="1:291187749616:android:8b4d13da4e432e15b60835" />
+                  <option name="projectId" value="chakra-4b83f" />
+                  <option name="projectNumber" value="291187749616" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

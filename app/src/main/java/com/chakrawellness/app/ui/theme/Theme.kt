@@ -1,4 +1,4 @@
-package com.chakrawellness.chakraapp.ui.theme
+package com.chakrawellness.app.ui.theme
 
 import android.app.Activity
 import android.os.Build

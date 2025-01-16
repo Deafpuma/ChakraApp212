@@ -1,4 +1,4 @@
-package com.chakrawellness.chakraapp.ui.theme
+package com.chakrawellness.app.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
