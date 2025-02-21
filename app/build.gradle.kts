@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.media3.common.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -87,6 +88,15 @@ dependencies {
     implementation(libs.androidx.navigation.compose.v260)
 
     implementation(libs.coil.compose)
+
+    implementation (libs.play.services.auth.v2050) // For Google Sign-In
+    implementation (libs.com.google.firebase.firebase.auth.ktx) // Firebase Auth
+
+    dependencies {
+        implementation(libs.play.services.auth.v2070) // Latest Google Sign-In SDK
+    }
+
+
 
 
 

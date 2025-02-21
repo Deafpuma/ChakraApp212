@@ -2,19 +2,18 @@ package com.chakrawellness.app.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    isProfileCreated: Boolean, // Indicates whether the profile is created
-    onLogout: () -> Unit, // Callback for logout action
-    onCreateProfileClick: () -> Unit // Callback for creating a profile
+    navController: NavController,
+    isProfileCreated: Boolean,
+    onLogout: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -23,29 +22,27 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Logout Button
+        Text("Dashboard", style = androidx.compose.material3.MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Button to view or create profile
         Button(
-            onClick = onLogout,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
+            onClick = {
+                if (isProfileCreated) {
+                    navController.navigate("profile")
+                } else {
+                    navController.navigate("createProfile")
+                }
+            }
         ) {
-            Text("Logout")
+            Text(if (isProfileCreated) "View Profile" else "Create Profile")
         }
 
-        // Conditional UI based on `isProfileCreated`
-        if (!isProfileCreated) {
-            Button(
-                onClick = onCreateProfileClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Create Profile")
-            }
-        } else {
-            Text(
-                text = "Profile already created!",
-                modifier = Modifier.padding(top = 16.dp)
-            )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Logout button
+        Button(onClick = onLogout) {
+            Text("Logout")
         }
     }
 }

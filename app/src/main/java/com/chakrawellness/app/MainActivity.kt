@@ -1,47 +1,35 @@
 package com.chakrawellness.app
 
-import android.annotation.SuppressLint
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
-import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.GoogleAuthProvider
+import com.chakrawellness.app.screens.*
+import com.chakrawellness.app.utility.FirestoreUtils
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
-import androidx.navigation.NavHostController
-import com.chakrawellness.app.screens.CreateAccountScreen
-import com.chakrawellness.app.screens.CreateProfileScreen
-import com.chakrawellness.app.screens.DashboardScreen
-import com.chakrawellness.app.screens.LoginScreen
-import com.chakrawellness.app.R
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
-
+import com.google.firebase.firestore.Query
 
 class MainActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
-    private lateinit var navController: NavHostController
 
     companion object {
         private const val RC_SIGN_IN = 1001
     }
 
-    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -56,73 +44,119 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            navController = rememberNavController()
+            val navController = rememberNavController()
+            AppNavigation(navController)
+        }
+    }
 
-            Scaffold {
-                NavHost(navController = navController, startDestination = "login") {
-                    composable("login") {
-                        LoginScreen(
-                            onLoginSuccess = {
-                                navController.navigate("dashboard") {
-                                    popUpTo("login") { inclusive = true }
-                                }
-                            },
-                            onCreateAccountClick = {
-                                navController.navigate("createAccount")
-                            },
-                            onGoogleSignIn = {
-                                val signInIntent = googleSignInClient.signInIntent
-                                startActivityForResult(signInIntent, RC_SIGN_IN)
-                            }
-                        )
-                    }
+    @Composable
+    private fun AppNavigation(navController: NavHostController) {
+        NavHost(navController = navController, startDestination = "login") {
+            composable("login") {
+                LoginScreen(
+                    navController = navController,
+                    onGoogleSignInClick = { startGoogleSignIn() }, // ✅ Pass Google Sign-In
+                    onCreateAccountClick = { navController.navigate("createAccount") } // ✅ Fix missing parameter
+                )
+            }
 
-                    composable("dashboard") {
-                        var isProfileCreated by remember { mutableStateOf(false) }
 
-                        // Call the asynchronous function and update the state
-                        checkIfProfileCreated { profileCreated ->
-                            isProfileCreated = profileCreated
+            composable("dashboard") {
+                val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+                var isProfileCreated by remember { mutableStateOf(false) }
+
+                LaunchedEffect(userId) {
+                    if (userId.isNotEmpty()) {
+                        FirestoreUtils.checkIfProfileExists { exists ->
+                            isProfileCreated = exists
                         }
-
-                        DashboardScreen(
-                            onLogout = {
-                                auth.signOut()
-                                navController.navigate("login") {
-                                    popUpTo("dashboard") { inclusive = true }
-                                }
-                            },
-                            onCreateProfileClick = {
-                                navController.navigate("createProfile")
-                            },
-                            isProfileCreated = isProfileCreated
-                        )
-                    }
-
-                    composable("createProfile") {
-                        CreateProfileScreen(
-                            onProfileSaved = {
-                                navController.navigate("dashboard") {
-                                    popUpTo("createProfile") { inclusive = true }
-                                }
-                            }
-                        )
-                    }
-
-                    composable("createAccount") {
-                        CreateAccountScreen(
-                            onAccountCreated = {
-                                navController.navigate("dashboard") {
-                                    popUpTo("createAccount") { inclusive = true }
-                                }
-                            }
-                        )
                     }
                 }
+
+
+                DashboardScreen(
+                    navController = navController,
+                    isProfileCreated = isProfileCreated,
+                    onLogout = {
+                        FirebaseAuth.getInstance().signOut()
+                        navController.navigate("login") {
+                            popUpTo("dashboard") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable("profile") {
+                val userId = auth.currentUser?.uid.orEmpty()
+                ProfileScreen(
+                    navController = navController,
+                    userId = userId
+                )
+            }
+
+            composable("createProfile") {
+                val userId = auth.currentUser?.uid.orEmpty()
+                if (userId.isNotEmpty()) {
+                    CreateProfileScreen(navController = navController, userId = userId)
+                } else {
+                    Log.e("Navigation", "Invalid userId: $userId")
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Error: Invalid user session.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+            composable("quiz") {
+                QuizScreen(navController = navController, onComplete = {
+                    navController.popBackStack()
+                })
+            }
+            composable("quizHistory") {  // ✅ Fix: Added missing route
+                QuizHistoryScreen(navController = navController)
+            }
+            composable("quizResults") {
+                val quizResults = remember { mutableStateOf<Map<String, Map<String, Int>>>(emptyMap()) }
+                val auth = FirebaseAuth.getInstance()
+                val userId = auth.currentUser?.uid.orEmpty()  // ✅ Ensure userId is retrieved inside the scope
+
+                // Fetch quiz results from Firestore
+                LaunchedEffect(Unit) {
+                    if (userId.isNotEmpty()) {
+                        FirestoreUtils.getLatestQuizResults(userId) { results ->
+                            quizResults.value = results
+                        }
+                    }
+                }
+
+                QuizResultsScreen(navController, quizResults.value)
+            }
+
+
+
+
+            composable("createAccount") {
+                CreateAccountScreen(
+                    navController = navController,
+                    onAccountCreated = {
+                        val userId = auth.currentUser?.uid.orEmpty()
+                        if (userId.isNotEmpty()) {
+                            navController.navigate("createProfile")
+                        }
+                    }
+                )
             }
         }
     }
 
+    // ✅ Initiates Google Sign-In Process
+    private fun startGoogleSignIn() {
+        val signInIntent = googleSignInClient.signInIntent
+        startActivityForResult(signInIntent, RC_SIGN_IN)
+    }
+
+    // ✅ Handles Google Sign-In Results
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == RC_SIGN_IN) {
@@ -131,7 +165,11 @@ class MainActivity : ComponentActivity() {
                 val account = task.getResult(ApiException::class.java)
                 val idToken = account?.idToken
                 if (idToken != null) {
-                    handleGoogleSignIn(idToken)
+                    setContent {
+                        val navController =
+                            rememberNavController()  // ✅ Correct way to get NavController
+                        handleGoogleSignIn(idToken, navController)
+                    }
                 }
             } catch (e: ApiException) {
                 Log.e("Google Sign-In", "Error: ${e.message}")
@@ -140,46 +178,51 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleGoogleSignIn(idToken: String) {
+
+    // ✅ Handles Firebase Authentication with Google Sign-In
+    private fun handleGoogleSignIn(idToken: String, navController: NavHostController) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential).addOnCompleteListener(this) { task ->
-            if (task.isSuccessful) {
-                runOnUiThread {
-                    navController.navigate("dashboard") {
-                        popUpTo("login") { inclusive = true }
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    val userId = auth.currentUser?.uid.orEmpty()
+                    if (userId.isNotEmpty()) {
+                        FirestoreUtils.checkIfProfileExists { exists ->
+                            if (exists) {
+                                navController.navigate("dashboard") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            } else {
+                                navController.navigate("createProfile") {
+                                    popUpTo("login") { inclusive = true }
+                                }
+                            }
+                        }
+                    } else {
+                        Log.e("Google Sign-In", "Invalid user ID")
                     }
+                } else {
+                    Log.e("Google Sign-In", "Failed: ${task.exception?.localizedMessage}")
+                    Toast.makeText(this, "Google Sign-In Failed", Toast.LENGTH_SHORT).show()
                 }
-            } else {
-                Toast.makeText(this, "Google Sign-In Failed", Toast.LENGTH_SHORT).show()
-                Log.e("Google Sign-In", "Error: ${task.exception}")
             }
-        }
     }
 
-    private fun checkIfProfileCreated(callback: (Boolean) -> Unit) {
-        val currentUser = auth.currentUser ?: return callback(false)
-        val userId = currentUser.uid
 
+    fun getLatestQuizResults(userId: String, callback: (Map<String, Map<String, Int>>) -> Unit) {
         val db = FirebaseFirestore.getInstance()
-        db.collection("profiles").document(userId).get()
-            .addOnSuccessListener { document ->
-                callback(document.exists())
+        db.collection("Users").document(userId).collection("QuizResults")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(1)
+            .get()
+            .addOnSuccessListener { documents ->
+                val latestResult = documents.firstOrNull()?.data as? Map<String, Map<String, Int>> ?: emptyMap()
+                callback(latestResult)
             }
-            .addOnFailureListener { exception ->
-                Log.e("Firestore", "Error checking profile: ${exception.message}")
-                callback(false)
+            .addOnFailureListener {
+                callback(emptyMap())
             }
     }
-    override fun onBackPressed() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            onBackInvokedDispatcher.registerOnBackInvokedCallback(
-                OnBackInvokedDispatcher.PRIORITY_DEFAULT
-            ) {
-                // Handle back action
-            }
-        } else {
-            super.onBackPressed()
-        }
-    }
-
 }
+
+

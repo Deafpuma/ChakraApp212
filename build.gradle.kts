@@ -9,17 +9,8 @@ buildscript {
 
     dependencies {
         classpath(libs.google.services) // Google Services Plugin
+        classpath (libs.gradle)
 
     }
 }
 
-//allprojects {
-//    repositories {
-//        google()
-//        mavenCentral()
-//    }
-//}
-
-//    repositories {
-//        google()
-//        mavenCentral()
