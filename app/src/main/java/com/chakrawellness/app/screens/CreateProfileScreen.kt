@@ -103,7 +103,15 @@ fun CreateProfileScreen(
                 )
 
                 // Save the profile to Firestore
-                FirestoreUtils.saveUserProfile(userId, profile,
+                FirestoreUtils.saveUserProfile(
+                    userId = userId,
+                    profile = UserProfile(
+                        name = name,
+                        age = age.toIntOrNull() ?: 0,
+                        weight = weight.toIntOrNull() ?: 0,
+                        heightFeet = heightFeet.toIntOrNull() ?: 0,
+                        heightInches = heightInches.toIntOrNull() ?: 0
+                    ),
                     onSuccess = {
                         Toast.makeText(context, "Profile created successfully!", Toast.LENGTH_SHORT).show()
                         navController.navigate("profile") {

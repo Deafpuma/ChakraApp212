@@ -1,107 +1,129 @@
 package com.chakrawellness.app.screens
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.Indication
+import androidx.compose.foundation.IndicationNodeFactory
+import androidx.compose.foundation.indication
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-
-
-import androidx.compose.foundation.Image
-import androidx.compose.material3.*
-
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import coil.compose.rememberAsyncImagePainter
-import coil.compose.rememberImagePainter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
+import com.chakrawellness.app.R
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import kotlinx.coroutines.delay
 
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ktx.toObject
+
+
+
 
 @Composable
-fun HomeScreen(
-    userId: String,
-    onEditProfile: () -> Unit,
-    onLogout: () -> Unit
-) {
-    var profileData by remember { mutableStateOf<UserProfile?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+fun HomeScreen(navController: NavHostController) {
+    Column {
+        HeaderBar(title = "Home")  // ✅ Pass "Home" as title
 
-    // Fetch profile data
-    LaunchedEffect(userId) {
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(userId)
-            .get()
-            .addOnSuccessListener { document ->
-                profileData = document.toObject<UserProfile>()
-                loading = false
-            }
-            .addOnFailureListener { exception ->
-                errorMessage = "Failed to load profile: ${exception.message}"
-                loading = false
-            }
-    }
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // ✅ Background Image
+            Image(
+                painter = painterResource(id = R.drawable.home_background),
+                contentDescription = "Background",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        if (loading) {
-            Text("Loading profile...", style = MaterialTheme.typography.bodyLarge)
-        } else if (errorMessage != null) {
-            Text(errorMessage ?: "Unknown error", color = Color.Red)
-        } else {
-            profileData?.let { profile ->
-                Text("Welcome, ${profile.name}!", style = MaterialTheme.typography.headlineMedium)
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // ✅ Buttons with Ripple Effect
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ImageButton(navController, "profile", R.drawable.profile_button, Modifier.weight(1f))
+                        ImageButton(navController, "quizRoot", R.drawable.quiz_button, Modifier.weight(1f)) // ✅ Starts at Root Chakra
+                    }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Display profile picture
-                if (profile.profilePicture.isNotEmpty()) {
-                    Image(
-                        painter =
-                        rememberAsyncImagePainter(profile.profilePicture),
-                        contentDescription = "Profile Picture",
-                        modifier = Modifier.size(100.dp),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Display other profile details
-                Text("Age: ${profile.age}")
-                Text("Weight: ${profile.weight} lbs")
-                Text("Height: ${profile.heightFeet}'${profile.heightInches}\"")
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Button(onClick = onEditProfile) {
-                    Text("Edit Profile")
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(onClick = onLogout, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
-                    Text("Logout", color = Color.White)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ImageButton(navController, "quizResults", R.drawable.results_button, Modifier.weight(1f))
+                        ImageButton(navController, "about", R.drawable.about_button, Modifier.weight(1f))
+                    }
                 }
             }
         }
     }
 }
 
-// Data class for UserProfile
-data class UserProfile(
-    val name: String = "",
-    val age: Int = 0,
-    val weight: Int = 0,
-    val heightFeet: Int = 0,
-    val heightInches: Int = 0,
-    val profilePicture: String = ""
-)
+// ✅ Image Button with Material3 Ripple + Scale Animation
+@Composable
+fun ImageButton(navController: NavHostController, destination: String, imageRes: Int, modifier: Modifier = Modifier) {
+    var isClicked by remember { mutableStateOf(false) }
+    var isTransitioning by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+
+    LaunchedEffect(isClicked) {
+        if (isClicked) {
+            delay(1000)  // Let ripple animation play
+            isTransitioning = true
+            delay(700)  // Transition effect
+            navController.navigate(destination)  // Switch pages
+        }
+    }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .aspectRatio(1f)  // ✅ Ensures all buttons are perfect squares
+            .clickable(interactionSource = interactionSource, indication = null) {
+                isClicked = true
+            }
+    ) {
+        // ✅ Button Image
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = destination,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // ✅ Transition Effect (Fades Out)
+        AnimatedVisibility(
+            visible = isTransitioning,
+            enter = fadeIn(animationSpec = tween(500)),
+            exit = fadeOut(animationSpec = tween(500))
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.2f))
+            )
+        }
+    }
+}
+

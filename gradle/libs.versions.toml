@@ -2,6 +2,7 @@
 activityComposeVersion = "1.10.0"
 agp = "8.7.3"
 androidxActivityCompose = "1.7.2"
+androidxMaterial3 = "1.2.0"
 coilCompose = "2.4.0"
 coreKtxVersion = "1.10.1"
 firebaseAuthKtx = "23.1.0"
@@ -27,6 +28,8 @@ playServicesAuth = "21.3.0"
 playServicesAuthVersion = "20.5.0"
 ui = "1.7.6"
 media3CommonKtx = "1.5.1"
+foundationAndroid = "1.7.2"
+volley = "1.2.1"
 
 [libraries]
 androidx-activity-compose-v1100 = { module = "androidx.activity:activity-compose", version.ref = "activityComposeVersion" }
@@ -34,6 +37,7 @@ androidx-activity-compose-v172 = { module = "androidx.activity:activity-compose"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-core-ktx-v1101 = { module = "androidx.core:core-ktx", version.ref = "coreKtxVersion" }
 androidx-material3-v111 = { module = "androidx.compose.material3:material3", version.ref = "material3Version" }
+androidx-material3-v120 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 androidx-navigation-compose-v260 = { module = "androidx.navigation:navigation-compose", version.ref = "navigationComposeVersion" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
@@ -66,6 +70,8 @@ play-services-auth-v2050 = { module = "com.google.android.gms:play-services-auth
 play-services-auth-v2070 = { module = "com.google.android.gms:play-services-auth", version.ref = "googlePlayServicesAuth" }
 ui = { module = "androidx.compose.ui:ui", version.ref = "ui" }
 androidx-media3-common-ktx = { group = "androidx.media3", name = "media3-common-ktx", version.ref = "media3CommonKtx" }
+androidx-foundation-android = { group = "androidx.compose.foundation", name = "foundation-android", version.ref = "foundationAndroid" }
+volley = { group = "com.android.volley", name = "volley", version.ref = "volley" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

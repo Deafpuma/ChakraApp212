@@ -1,189 +1,178 @@
 package com.chakrawellness.app.screens
 
-import android.util.Log
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight // ✅ Fix for missing import
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import com.chakrawellness.app.R
 import com.chakrawellness.app.utility.FirestoreUtils
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.ui.layout.ContentScale
+
+data class ChakraQuizData(
+    val headerImage: Int,
+    val chakraImage: Int,
+    val nextChakraRoute: String?,
+    val questions: List<String>,
+    val chakraColor: Color
+)
+
+
 
 @Composable
-fun QuizScreen(navController: NavController, onComplete: () -> Unit) {
-    val auth = FirebaseAuth.getInstance()
-    var userId by remember { mutableStateOf("") }
+fun QuizScreen(navController: NavHostController, chakraName: String) {
+    val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+    val chakraData = getChakraAssets(chakraName)
+    val answers = remember { mutableStateOf(mutableMapOf<String, Int>()) }
+    val showValidationDialog = remember { mutableStateOf(false) }
+    val unansweredQuestions = remember { mutableStateOf(emptyList<String>()) }
 
-    // ✅ Fetch user ID once when the screen loads
-    LaunchedEffect(Unit) {
-        userId = auth.currentUser?.uid.orEmpty()
-    }
-
-    val quizResponses = remember {
-        mutableStateOf<Map<String, MutableMap<String, Int>>>(
-            mutableMapOf(
-                "Root" to mutableMapOf(),
-                "Sacral" to mutableMapOf(),
-                "Solar Plexus" to mutableMapOf(),
-                "Heart" to mutableMapOf(),
-                "Throat" to mutableMapOf(),
-                "Third Eye" to mutableMapOf(),
-                "Crown" to mutableMapOf()
-            )
-        )
-    }
-
-
-    val chakraQuestions = mapOf(
-        "Root" to listOf("Fatigue", "Insecurity", "Instability"),
-        "Sacral" to listOf("Loneliness", "Betrayal", "Regretful"),
-        "Solar Plexus" to listOf("Low self-esteem", "Fear", "Lack of confidence"),
-        "Heart" to listOf("Jealousy", "Abandonment", "Anger"),
-        "Throat" to listOf("Anxiety", "Fear of judgement"),
-        "Third Eye" to listOf("Judgemental", "Unfocused"),
-        "Crown" to listOf("Hopelessness", "Disconnected")
-    )
-
-    var showDialog by remember { mutableStateOf(false) }
-    var missingQuestions by remember { mutableStateOf("") }
-
+    // ✅ Enable Scrolling
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()), // ✅ Enables scrolling
-        horizontalAlignment = Alignment.CenterHorizontally
+            .verticalScroll(rememberScrollState()) // ✅ This makes the screen scrollable
     ) {
-        Text("Chakra Quiz", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+        // ✅ Header with Logo, Background, and Name
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(id = R.drawable.header_background),
+                contentDescription = "Header Background",
+                modifier = Modifier.fillMaxWidth(),
+                contentScale = ContentScale.Crop
+            )
+            Image(
+                painter = painterResource(id = R.drawable.sensory_oasis_logo),
+                contentDescription = "Logo",
+                modifier = Modifier
+                    .size(80.dp)
+                    .align(Alignment.TopCenter)
+            )
+        }
 
-        chakraQuestions.forEach { (chakra, questions) ->
-            Text(text = chakra, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 8.dp))
-            questions.forEach { question ->
-                ChakraSlider(question, chakra, quizResponses)
-            }
+        // ✅ Chakra Background Banner
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .background(chakraData.chakraColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = chakraName.uppercase(),
+                fontSize = 22.sp,
+                color = Color.White
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
-            onClick = {
-                val unansweredQuestions = mutableListOf<String>()
-
-                quizResponses.value.forEach { (chakra, responses) ->
-                    responses.forEach { (question, answer) ->
-                        if (answer == 0) { // Check if answer is left at default (0)
-                            unansweredQuestions.add("$chakra - $question")
-                        }
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            chakraData.questions.forEach { question ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = question, fontSize = 18.sp)
+                        Slider(
+                            value = (answers.value[question] ?: 0).toFloat(),
+                            onValueChange = { newValue ->
+                                answers.value = answers.value.toMutableMap().apply { put(question, newValue.toInt()) }
+                            },
+                            valueRange = 0f..5f,
+                            steps = 4,
+                            colors = SliderDefaults.colors(
+                                thumbColor = chakraData.chakraColor,
+                                activeTrackColor = chakraData.chakraColor
+                            )
+                        )
                     }
                 }
-
-                if (unansweredQuestions.isNotEmpty()) {
-                    showDialog = true
-                    missingQuestions = unansweredQuestions.joinToString("\n") // Convert to readable format
-                } else {
-                    submitQuiz(userId, quizResponses.value, navController, onComplete) // ✅ Pass userId correctly
-                }
             }
-        ) {
-            Text("Submit Quiz")
-        }
-    }
 
-    if (showDialog) {
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("Incomplete Quiz", fontWeight = FontWeight.Bold) },
-            text = { Text("You left some questions blank. Please answer:\n\n$missingQuestions") },
-            confirmButton = {
-                Button(onClick = {
-                    showDialog = false
-                    submitQuiz(userId, quizResponses.value, navController, onComplete) // ✅ Pass userId correctly
-                }) {
-                    Text("Yes, Submit")
-                }
-            },
-            dismissButton = {
-                Button(onClick = { showDialog = false }) {
-                    Text("Go Back")
-                }
-            }
-        )
-    }
-}
+            Spacer(modifier = Modifier.height(24.dp))
 
-@Composable
-fun ChakraSlider(
-    question: String,
-    chakra: String,
-    quizResponses: MutableState<Map<String, MutableMap<String, Int>>>
-) {
-    var sliderValue by remember { mutableStateOf(1f) } // ✅ Default starts at 1 to avoid "unanswered" issues
-
-    val labels = listOf("None", "Mild", "Moderate", "Severe", "Extreme") // ✅ Labels for better clarity
-
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(text = question, style = MaterialTheme.typography.bodyMedium)
-
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Slider(
-                value = sliderValue,
-                onValueChange = {
-                    sliderValue = it
-                    quizResponses.value = quizResponses.value.toMutableMap().apply {
-                        this[chakra]?.set(question, it.toInt())
+            Button(
+                onClick = {
+                    val missingQuestions = chakraData.questions.filter { it !in answers.value }
+                    if (missingQuestions.isNotEmpty()) {
+                        unansweredQuestions.value = missingQuestions
+                        showValidationDialog.value = true
+                    } else {
+                        FirestoreUtils.saveQuizResults(userId, mapOf(chakraName to answers.value), onSuccess = {
+                            navController.navigate(chakraData.nextChakraRoute ?: "chakraResults")
+                        }, onFailure = {})
                     }
                 },
-                valueRange = 1f..5f,  // ✅ Starts at 1, so no "zero" issues
-                steps = 3,  // ✅ Evenly spaced steps
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        // ✅ Labels under the slider
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            labels.forEach { label ->
-                Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                colors = ButtonDefaults.buttonColors(containerColor = chakraData.chakraColor)
+            ) {
+                Text(if (chakraData.nextChakraRoute != null) "Next" else "Submit Quiz")
             }
         }
-
-        // ✅ Bubble that shows selected value
-        Text("Selected: ${labels[sliderValue.toInt() - 1]}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
     }
 }
 
-private fun submitQuiz(
-    userId: String,
-    quizResponses: Map<String, Map<String, Int>>,
-    navController: NavController,
-    onComplete: () -> Unit
-) {
-    if (userId.isEmpty()) {
-        Log.e("QuizScreen", "User not authenticated")
-        return
-    }
 
-    FirestoreUtils.saveQuizResults(  // ✅ Ensure userId is passed
-        userId = userId,
-        quizResults = quizResponses,
-        onSuccess = {
-            Log.d("QuizScreen", "Quiz results saved successfully")
-            onComplete()
-            navController.navigate("quizResults") // ✅ Navigate to results screen
-        },
-        onFailure = { error ->
-            Log.e("QuizScreen", "Failed to save quiz results: $error")
-        }
-    )
+
+fun getChakraAssets(chakraName: String): ChakraQuizData {
+    return when (chakraName) {
+        "Root" -> ChakraQuizData(
+            R.drawable.header_bg_red, R.drawable.red_quiz, "quizSacral",
+            listOf("Fatigue", "Insecurity", "Addictions", "Greed", "Instability", "Lacking a sense of identity"),
+            Color(0xFF8B0000)
+        )
+        "Sacral" -> ChakraQuizData(
+            R.drawable.header_bg_orange, R.drawable.orange_quiz, "quizSolarPlexus",
+            listOf("Loneliness", "Addicted", "Betrayal", "Low libido", "Regretful", "Anxious", "Guilty", "Low back pain", "Urinary Problems", "Allergies"),
+            Color(0xFFD2691E)
+        )
+        "Solar Plexus" -> ChakraQuizData(
+            R.drawable.header_bg_yellow, R.drawable.yellow_quiz, "quizHeart",
+            listOf("Low self-esteem", "Digestive issues", "Lack of confidence", "Fear", "Loss of control"),
+            Color(0xFFDAA520)
+        )
+        "Heart" -> ChakraQuizData(
+            R.drawable.header_bg_green, R.drawable.green_quiz, "quizThroat",
+            listOf("Jealousy", "Abandonment", "Anger", "Bitterness", "Fear", "Rejection", "Envy and conditional love"),
+            Color(0xFF228B22)
+        )
+        "Throat" -> ChakraQuizData(
+            R.drawable.header_bg_blue, R.drawable.blue_quiz, "quizThirdEye",
+            listOf("Insecurity", "Anxiety", "Fear of judgement", "Powerless to speak out"),
+            Color(0xFF1E90FF)
+        )
+        "Third Eye" -> ChakraQuizData(
+            R.drawable.header_bg_indigo, R.drawable.indigo_quiz, "quizCrown",
+            listOf("Emotional", "Judgemental", "Unfocused", "Nightmares", "Poor memory", "Migraines"),
+            Color(0xFF2A3F9D)
+        )
+        "Crown" -> ChakraQuizData(
+            R.drawable.header_bg_violet, R.drawable.violet_quiz, null,
+            listOf("Hopelessness", "Disconnected", "Rigid thoughts", "Depression and confusion"),
+            Color(0xFF6A0DAD)
+        )
+        else -> ChakraQuizData(R.drawable.header_bg_red, R.drawable.red_quiz, "quizSacral", listOf("No questions available."), Color.Gray)
+    }
 }
+

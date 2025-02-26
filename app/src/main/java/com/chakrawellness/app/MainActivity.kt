@@ -1,26 +1,24 @@
 package com.chakrawellness.app
 
 import android.content.Intent
+import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.chakrawellness.app.screens.*
-import com.chakrawellness.app.utility.FirestoreUtils
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import com.chakrawellness.app.utility.FirestoreUtils
+import com.chakrawellness.app.models.UserProfile
+import com.chakrawellness.app.utility.onNfcTagDetected
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     private lateinit var auth: FirebaseAuth
@@ -32,9 +30,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
 
         auth = FirebaseAuth.getInstance()
-
         googleSignInClient = GoogleSignIn.getClient(
             this,
             GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -43,110 +41,30 @@ class MainActivity : ComponentActivity() {
                 .build()
         )
 
+        val currentUser = auth.currentUser
+
         setContent {
             val navController = rememberNavController()
-            AppNavigation(navController)
-        }
-    }
+            var userProfile by remember { mutableStateOf<UserProfile?>(null) }
 
-    @Composable
-    private fun AppNavigation(navController: NavHostController) {
-        NavHost(navController = navController, startDestination = "login") {
-            composable("login") {
-                LoginScreen(
-                    navController = navController,
-                    onGoogleSignInClick = { startGoogleSignIn() }, // ✅ Pass Google Sign-In
-                    onCreateAccountClick = { navController.navigate("createAccount") } // ✅ Fix missing parameter
-                )
-            }
-
-
-            composable("dashboard") {
-                val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
-                var isProfileCreated by remember { mutableStateOf(false) }
-
-                LaunchedEffect(userId) {
-                    if (userId.isNotEmpty()) {
-                        FirestoreUtils.checkIfProfileExists { exists ->
-                            isProfileCreated = exists
+            // ✅ Fetch user profile on login
+            LaunchedEffect(currentUser?.uid) {
+                currentUser?.uid?.let { userId ->
+                    FirestoreUtils.getUserProfile(
+                        userId,
+                        onSuccess = { profile ->
+                            userProfile = profile
+                            Log.d("MainActivity", "User profile loaded: $profile")
+                        },
+                        onFailure = { error ->
+                            Log.e("MainActivity", "Error loading user profile: $error")
                         }
-                    }
-                }
-
-
-                DashboardScreen(
-                    navController = navController,
-                    isProfileCreated = isProfileCreated,
-                    onLogout = {
-                        FirebaseAuth.getInstance().signOut()
-                        navController.navigate("login") {
-                            popUpTo("dashboard") { inclusive = true }
-                        }
-                    }
-                )
-            }
-
-            composable("profile") {
-                val userId = auth.currentUser?.uid.orEmpty()
-                ProfileScreen(
-                    navController = navController,
-                    userId = userId
-                )
-            }
-
-            composable("createProfile") {
-                val userId = auth.currentUser?.uid.orEmpty()
-                if (userId.isNotEmpty()) {
-                    CreateProfileScreen(navController = navController, userId = userId)
-                } else {
-                    Log.e("Navigation", "Invalid userId: $userId")
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Error: Invalid user session.",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    )
                 }
             }
 
-            composable("quiz") {
-                QuizScreen(navController = navController, onComplete = {
-                    navController.popBackStack()
-                })
-            }
-            composable("quizHistory") {  // ✅ Fix: Added missing route
-                QuizHistoryScreen(navController = navController)
-            }
-            composable("quizResults") {
-                val quizResults = remember { mutableStateOf<Map<String, Map<String, Int>>>(emptyMap()) }
-                val auth = FirebaseAuth.getInstance()
-                val userId = auth.currentUser?.uid.orEmpty()  // ✅ Ensure userId is retrieved inside the scope
-
-                // Fetch quiz results from Firestore
-                LaunchedEffect(Unit) {
-                    if (userId.isNotEmpty()) {
-                        FirestoreUtils.getLatestQuizResults(userId) { results ->
-                            quizResults.value = results
-                        }
-                    }
-                }
-
-                QuizResultsScreen(navController, quizResults.value)
-            }
-
-
-
-
-            composable("createAccount") {
-                CreateAccountScreen(
-                    navController = navController,
-                    onAccountCreated = {
-                        val userId = auth.currentUser?.uid.orEmpty()
-                        if (userId.isNotEmpty()) {
-                            navController.navigate("createProfile")
-                        }
-                    }
-                )
-            }
+            val startDestination = if (currentUser != null) "home" else "login"
+            AppNavigation(navController, startDestination)
         }
     }
 
@@ -165,11 +83,7 @@ class MainActivity : ComponentActivity() {
                 val account = task.getResult(ApiException::class.java)
                 val idToken = account?.idToken
                 if (idToken != null) {
-                    setContent {
-                        val navController =
-                            rememberNavController()  // ✅ Correct way to get NavController
-                        handleGoogleSignIn(idToken, navController)
-                    }
+                    handleGoogleSignIn(idToken)
                 }
             } catch (e: ApiException) {
                 Log.e("Google Sign-In", "Error: ${e.message}")
@@ -178,51 +92,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
-    // ✅ Handles Firebase Authentication with Google Sign-In
-    private fun handleGoogleSignIn(idToken: String, navController: NavHostController) {
+    private fun handleGoogleSignIn(idToken: String) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         auth.signInWithCredential(credential)
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
-                    val userId = auth.currentUser?.uid.orEmpty()
-                    if (userId.isNotEmpty()) {
-                        FirestoreUtils.checkIfProfileExists { exists ->
-                            if (exists) {
-                                navController.navigate("dashboard") {
-                                    popUpTo("login") { inclusive = true }
-                                }
-                            } else {
-                                navController.navigate("createProfile") {
-                                    popUpTo("login") { inclusive = true }
-                                }
-                            }
+                    runOnUiThread {
+                        setContent {
+                            val navController = rememberNavController()
+                            AppNavigation(navController, "home")
                         }
-                    } else {
-                        Log.e("Google Sign-In", "Invalid user ID")
                     }
                 } else {
-                    Log.e("Google Sign-In", "Failed: ${task.exception?.localizedMessage}")
                     Toast.makeText(this, "Google Sign-In Failed", Toast.LENGTH_SHORT).show()
                 }
             }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
 
-    fun getLatestQuizResults(userId: String, callback: (Map<String, Map<String, Int>>) -> Unit) {
-        val db = FirebaseFirestore.getInstance()
-        db.collection("Users").document(userId).collection("QuizResults")
-            .orderBy("timestamp", Query.Direction.DESCENDING)
-            .limit(1)
-            .get()
-            .addOnSuccessListener { documents ->
-                val latestResult = documents.firstOrNull()?.data as? Map<String, Map<String, Int>> ?: emptyMap()
-                callback(latestResult)
+        if (NfcAdapter.ACTION_NDEF_DISCOVERED == intent.action) {
+            val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+            if (userId.isNotEmpty()) {
+                onNfcTagDetected(userId, this)
             }
-            .addOnFailureListener {
-                callback(emptyMap())
-            }
+        }
     }
+
 }
-
-

@@ -11,17 +11,34 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.chakrawellness.app.utility.FirestoreUtils
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun QuizHistoryScreen(navController: NavController) {
     var quizResults by remember { mutableStateOf<List<Map<String, Any>>?>(null) }
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
-    LaunchedEffect(Unit) {
-        FirestoreUtils.getQuizResults(
-            onSuccess = { results -> quizResults = results },
-            onFailure = { error -> println("Error fetching quiz history: $error") }
-        )
+    LaunchedEffect(userId) {
+        if (userId.isNotEmpty()) {
+            FirestoreUtils.getQuizResults(
+                userId = userId,  // ✅ Pass the user ID
+                onSuccess = { results ->
+                    quizResults = results.map { quizResult ->
+                        mapOf(
+                            "quizResults" to quizResult.quizResults,
+                            "timestamp" to quizResult.timestamp
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    println("Error fetching quiz history: $error")
+                }
+            )
+        } else {
+            println("Error: No authenticated user found.")
+        }
     }
 
     Scaffold(

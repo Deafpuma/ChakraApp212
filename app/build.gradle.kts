@@ -12,7 +12,7 @@ android {
 
     defaultConfig {
         applicationId = "com.chakrawellness.app"
-        minSdk = 34
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -52,6 +52,11 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.media3.common.ktx)
+    implementation(libs.androidx.foundation.android)
+    implementation(libs.androidx.foundation.android)
+    implementation(libs.androidx.foundation.android)
+    implementation(libs.androidx.foundation.android)
+    implementation(libs.volley)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -77,7 +82,6 @@ dependencies {
     // Google Play Services Auth
     implementation(libs.play.services.auth)
 
-    implementation (libs.material3)
     implementation (libs.ui)
 
     implementation(libs.material)
@@ -86,6 +90,13 @@ dependencies {
     implementation(libs.androidx.activity.compose.v172)
     implementation(libs.androidx.material3.v111)
     implementation(libs.androidx.navigation.compose.v260)
+
+    implementation("androidx.compose.ui:ui:1.5.1")
+    implementation("androidx.compose.material:material:1.5.1")
+    implementation("androidx.compose.foundation:foundation:1.5.1")
+
+    implementation("androidx.compose.material3:material3:1.2.0")
+
 
     implementation(libs.coil.compose)
 

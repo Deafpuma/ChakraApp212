@@ -69,5 +69,12 @@ fun QuizResultsScreen(navController: NavController, quizResults: Map<String, Any
         Button(onClick = { navController.navigate("profile") }) {
             Text("Go to Profile")
         }
+        Button(
+            onClick = { navController.navigate("chakraResults") },
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text("View Chakra Imbalances")
+        }
+
     }
 }
